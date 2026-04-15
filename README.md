@@ -5,7 +5,7 @@ A KDE Plasma 6 system tray applet and wallpaper plugin that automatically fetche
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Plasma](https://img.shields.io/badge/KDE_Plasma-6.0%2B-blue)
 
-<a href="https://www.buymeacoffee.com/trickylf"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=trickylf&button_colour=BD5FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
+<a href="https://www.buymeacoffee.com/trickylf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-violet.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 <p>
   <img src="screenshots/1.png" alt="System tray applet" height="400">
@@ -28,7 +28,7 @@ A KDE Plasma 6 system tray applet and wallpaper plugin that automatically fetche
 | **System tray plasmoid** | Native Plasma applet for browsing and selecting wallpapers |
 | **Wallpaper plugin** | Appears in Desktop Settings > Wallpaper > Type |
 | **bing-wallpaper-helper** | Python CLI script that fetches images from Bing and applies wallpapers via D-Bus |
-| **systemd timer** | Triggers daily wallpaper fetch at midnight Pacific Time, with automatic catch-up on boot/wake |
+| **systemd timer** | Triggers daily wallpaper fetch at midnight Pacific Time (when Bing POTD wallpaper is published), with automatic catch-up on boot/wake |
 
 ## Requirements
 
