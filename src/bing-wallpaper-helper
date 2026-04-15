@@ -1,0 +1,280 @@
+#!/usr/bin/env python3
+"""Bing Wallpaper Helper — CLI backend for the Plasma applet.
+
+Subcommands:
+    fetch           Download new Bing wallpaper images
+    set-wallpaper   Apply an image as the desktop wallpaper
+    cleanup         Remove old images beyond retention count
+
+Called by the Plasma applet via the executable data engine,
+or manually from the command line.
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+BING_API_URL = "https://www.bing.com/HPImageArchive.aspx?format=js&n=8&idx=0"
+BING_BASE_URL = "https://www.bing.com"
+PLUGIN_ID = "com.github.trickpattyFH20.bingwallpaper"
+DEFAULT_DIR = Path.home() / "Pictures" / "bing-wallpapers"
+
+
+def get_download_dir(args_dir: str | None) -> Path:
+    d = Path(args_dir) if args_dir else DEFAULT_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def load_metadata(download_dir: Path) -> dict:
+    path = download_dir / "metadata.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return {"version": 1, "images": []}
+
+
+def save_metadata(download_dir: Path, data: dict):
+    path = download_dir / "metadata.json"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    os.replace(tmp, path)
+
+
+def cmd_fetch(args):
+    """Fetch new images from Bing API and download them."""
+    download_dir = get_download_dir(args.dir)
+    metadata = load_metadata(download_dir)
+    existing_dates = {img["startdate"] for img in metadata["images"]}
+
+    # Fetch API
+    try:
+        req = urllib.request.Request(BING_API_URL, headers={"User-Agent": "BingWallpaper/1.0"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            api_data = json.loads(resp.read())
+    except Exception as e:
+        print(json.dumps({"error": f"API fetch failed: {e}"}))
+        sys.exit(1)
+
+    images = api_data.get("images", [])
+    downloaded = 0
+    latest_path = ""
+
+    for img in images:
+        startdate = img.get("startdate", "")
+        if startdate in existing_dates:
+            continue
+
+        url = img.get("url", "")
+        uhd_url = BING_BASE_URL + re.sub(r"\d+x\d+", "UHD", url, count=1)
+        std_url = BING_BASE_URL + url
+
+        copyright_text = img.get("copyright", "")
+        title = copyright_text.split("(")[0].strip() if "(" in copyright_text else copyright_text
+
+        # Extract filename
+        match = re.search(r"OHR\.([^&]+)", uhd_url)
+        if match:
+            image_id = match.group(1)
+            image_id = re.sub(r"\.(jpg|jpeg|png|webp)$", "", image_id, flags=re.IGNORECASE)
+            image_id = re.sub(r"_UHD$", "", image_id)
+            image_id = re.sub(r"_\d+x\d+$", "", image_id)
+        else:
+            image_id = startdate
+
+        # Try UHD first, fall back to standard
+        is_uhd = True
+        try:
+            req = urllib.request.Request(uhd_url, headers={"User-Agent": "BingWallpaper/1.0"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = resp.read()
+            if len(data) < 1000:
+                raise ValueError("Too small")
+        except Exception:
+            is_uhd = False
+            try:
+                req = urllib.request.Request(std_url, headers={"User-Agent": "BingWallpaper/1.0"})
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    data = resp.read()
+            except Exception as e:
+                print(f"Failed to download {startdate}: {e}", file=sys.stderr)
+                continue
+
+        suffix = "_UHD" if is_uhd else "_1920x1080"
+        filename = f"{startdate}_{image_id}{suffix}.jpg"
+        filepath = download_dir / filename
+        filepath.write_bytes(data)
+
+        image_info = {
+            "startdate": startdate,
+            "enddate": img.get("enddate", ""),
+            "title": title,
+            "copyright": copyright_text,
+            "copyrightlink": img.get("copyrightlink", ""),
+            "filename": filename,
+            "is_uhd": is_uhd,
+            "downloaded_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Update metadata
+        metadata["images"] = [
+            i for i in metadata["images"] if i["startdate"] != startdate
+        ]
+        metadata["images"].append(image_info)
+        downloaded += 1
+
+        if not latest_path or startdate > os.path.basename(latest_path)[:8]:
+            latest_path = str(filepath)
+
+    # Sort newest first
+    metadata["images"].sort(key=lambda x: x["startdate"], reverse=True)
+    save_metadata(download_dir, metadata)
+
+    result = {
+        "downloaded": downloaded,
+        "total": len(metadata["images"]),
+        "latest": latest_path or (
+            str(download_dir / metadata["images"][0]["filename"])
+            if metadata["images"] else ""
+        ),
+        "dir": str(download_dir),
+    }
+
+    # Auto-apply newest wallpaper if requested
+    if args.apply and metadata["images"]:
+        newest = metadata["images"][0]
+        newest_path = str(download_dir / newest["filename"])
+        if apply_wallpaper(newest_path, newest.get("title", ""),
+                           newest.get("copyright", ""),
+                           newest.get("copyrightlink", "")):
+            result["applied"] = newest_path
+        else:
+            print("Warning: wallpaper apply failed (plasmashell may not be running)",
+                  file=sys.stderr)
+
+    # Run cleanup if retention limit specified
+    if args.keep > 0 and len(metadata["images"]) > args.keep:
+        removed = 0
+        while len(metadata["images"]) > args.keep:
+            old = metadata["images"].pop()
+            old_path = download_dir / old["filename"]
+            if old_path.exists():
+                old_path.unlink()
+            removed += 1
+        save_metadata(download_dir, metadata)
+        result["cleaned"] = removed
+        result["total"] = len(metadata["images"])
+
+    print(json.dumps(result))
+
+
+def apply_wallpaper(image_path: str, title: str = "", copyright_text: str = "",
+                    copyright_link: str = "") -> bool:
+    """Apply a wallpaper image via D-Bus on all desktops. Returns True on success."""
+    def js_escape(s: str) -> str:
+        return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+    image_url = f"file://{image_path}"
+
+    script = f"""
+var allDesktops = desktops();
+for (var i = 0; i < allDesktops.length; i++) {{
+    var d = allDesktops[i];
+    d.wallpaperPlugin = "{PLUGIN_ID}";
+    d.currentConfigGroup = ["Wallpaper", "{PLUGIN_ID}", "General"];
+    d.writeConfig("Image", "{js_escape(image_url)}");
+    d.writeConfig("Description", "{js_escape(title)}");
+    d.writeConfig("Copyright", "{js_escape(copyright_text)}");
+    d.writeConfig("CopyrightLink", "{js_escape(copyright_link)}");
+}}
+"""
+    try:
+        result = subprocess.run(
+            ["qdbus6", "org.kde.plasmashell", "/PlasmaShell",
+             "org.kde.PlasmaShell.evaluateScript", script],
+            capture_output=True, text=True, timeout=10,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def cmd_set_wallpaper(args):
+    """Set a wallpaper image via D-Bus on all desktops."""
+    image_path = os.path.abspath(args.image_path)
+    if not os.path.exists(image_path):
+        print(json.dumps({"error": f"File not found: {image_path}"}))
+        sys.exit(1)
+
+    if apply_wallpaper(image_path, args.title or "", args.copyright or "",
+                       args.link or ""):
+        print(json.dumps({"ok": True, "image": image_path}))
+    else:
+        print(json.dumps({"error": "qdbus6 failed to apply wallpaper"}))
+        sys.exit(1)
+
+
+def cmd_cleanup(args):
+    """Remove old images beyond retention count."""
+    download_dir = get_download_dir(args.dir)
+    keep = args.keep
+    if keep <= 0:
+        print(json.dumps({"removed": 0}))
+        return
+
+    metadata = load_metadata(download_dir)
+    images = metadata["images"]
+    removed = 0
+
+    while len(images) > keep:
+        old = images.pop()
+        old_path = download_dir / old["filename"]
+        if old_path.exists():
+            old_path.unlink()
+        removed += 1
+
+    save_metadata(download_dir, metadata)
+    print(json.dumps({"removed": removed, "remaining": len(images)}))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Bing Wallpaper Helper")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    fetch_p = sub.add_parser("fetch", help="Download new Bing wallpaper images")
+    fetch_p.add_argument("--dir", help="Download directory")
+    fetch_p.add_argument("--apply", action="store_true",
+                         help="Auto-apply newest wallpaper after fetching")
+    fetch_p.add_argument("--keep", type=int, default=0,
+                         help="Run cleanup after fetch, keeping N images (0 = no cleanup)")
+
+    wp_p = sub.add_parser("set-wallpaper", help="Apply wallpaper via D-Bus")
+    wp_p.add_argument("image_path", help="Path to image file")
+    wp_p.add_argument("--title", default="", help="Image title")
+    wp_p.add_argument("--copyright", default="", help="Copyright text")
+    wp_p.add_argument("--link", default="", help="Copyright link URL")
+
+    clean_p = sub.add_parser("cleanup", help="Remove old images")
+    clean_p.add_argument("--dir", help="Download directory")
+    clean_p.add_argument("--keep", type=int, default=50, help="Number of images to keep")
+
+    args = parser.parse_args()
+
+    if args.command == "fetch":
+        cmd_fetch(args)
+    elif args.command == "set-wallpaper":
+        cmd_set_wallpaper(args)
+    elif args.command == "cleanup":
+        cmd_cleanup(args)
+
+
+if __name__ == "__main__":
+    main()

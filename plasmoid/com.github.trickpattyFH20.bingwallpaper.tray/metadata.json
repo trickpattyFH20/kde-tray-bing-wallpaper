@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "com.github.trickpattyFH20.bingwallpaper.tray",
+        "Name": "Bing Wallpaper",
+        "Description": "Browse and manage daily Bing wallpapers from the system tray",
+        "Icon": "preferences-desktop-wallpaper",
+        "Category": "Utilities",
+        "Authors": [
+            {
+                "Name": "trickpattyFH20"
+            }
+        ],
+        "License": "GPL-3.0-or-later",
+        "Website": "https://github.com/trickpattyFH20/kde-tray-bing-wallpaper"
+    },
+    "X-Plasma-API": "declarativeappletscript",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-MainScript": "ui/main.qml",
+    "X-Plasma-NotificationArea": true,
+    "X-Plasma-NotificationAreaCategory": "ApplicationStatus"
+}

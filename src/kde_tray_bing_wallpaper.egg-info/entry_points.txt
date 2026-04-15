@@ -1,0 +1,2 @@
+[console_scripts]
+bing-wallpaper = bing_wallpaper.__main__:main

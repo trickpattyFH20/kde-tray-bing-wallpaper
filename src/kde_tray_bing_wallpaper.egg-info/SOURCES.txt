@@ -1,0 +1,16 @@
+pyproject.toml
+src/bing_wallpaper/__init__.py
+src/bing_wallpaper/__main__.py
+src/bing_wallpaper/app.py
+src/bing_wallpaper/constants.py
+src/bing_wallpaper/downloader.py
+src/bing_wallpaper/settings.py
+src/bing_wallpaper/storage.py
+src/bing_wallpaper/tray.py
+src/bing_wallpaper/wallpaper.py
+src/kde_tray_bing_wallpaper.egg-info/PKG-INFO
+src/kde_tray_bing_wallpaper.egg-info/SOURCES.txt
+src/kde_tray_bing_wallpaper.egg-info/dependency_links.txt
+src/kde_tray_bing_wallpaper.egg-info/entry_points.txt
+src/kde_tray_bing_wallpaper.egg-info/requires.txt
+src/kde_tray_bing_wallpaper.egg-info/top_level.txt

@@ -1,0 +1,11 @@
+[Unit]
+Description=Fetch and apply Bing wallpaper
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/bing-wallpaper-helper fetch --apply --keep 30
+Restart=on-failure
+RestartSec=60
+StartLimitIntervalSec=600
+StartLimitBurst=5

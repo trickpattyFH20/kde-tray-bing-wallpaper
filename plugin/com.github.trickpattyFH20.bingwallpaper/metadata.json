@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "trickpattyFH20"
+            }
+        ],
+        "Description": "Display daily Bing wallpaper images managed by the Bing Wallpaper tray app",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "com.github.trickpattyFH20.bingwallpaper",
+        "License": "GPL-3.0-or-later",
+        "Name": "Bing Wallpaper",
+        "Website": "https://github.com/trickpattyFH20/kde-tray-bing-wallpaper"
+    }
+}

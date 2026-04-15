@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: kde-tray-bing-wallpaper
+Version: 0.1.0
+Summary: KDE Plasma system tray application for daily Bing wallpapers
+License-Expression: GPL-3.0-or-later
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: PyQt6>=6.6

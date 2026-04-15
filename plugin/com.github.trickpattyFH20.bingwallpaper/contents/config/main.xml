@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="Image" type="String">
+      <label>Path to the current wallpaper image</label>
+      <default></default>
+    </entry>
+    <entry name="FillMode" type="Int">
+      <label>Sizing, cropping and positioning of the wallpaper image</label>
+      <default>2</default>
+    </entry>
+    <entry name="Color" type="Color">
+      <label>Background color behind the wallpaper image</label>
+      <default>#000000</default>
+    </entry>
+    <entry name="Description" type="String">
+      <label>Description of the current wallpaper image</label>
+      <default></default>
+    </entry>
+    <entry name="Copyright" type="String">
+      <label>Copyright information for the current image</label>
+      <default></default>
+    </entry>
+    <entry name="CopyrightLink" type="String">
+      <label>URL for copyright attribution</label>
+      <default></default>
+    </entry>
+  </group>
+
+</kcfg>
