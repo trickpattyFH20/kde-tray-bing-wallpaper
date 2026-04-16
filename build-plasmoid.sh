@@ -35,7 +35,7 @@ cp -r "$SCRIPT_DIR/plugin/$PLUGIN_ID" "$DEST/contents/data/wallpaper-plugin"
 
 # Build the .plasmoid zip
 mkdir -p "$DIST_DIR"
-PLASMOID_FILE="$DIST_DIR/bing-wallpaper.plasmoid"
+PLASMOID_FILE="$DIST_DIR/$TRAY_ID.plasmoid"
 python3 -c "
 import zipfile, os, sys
 base = sys.argv[1]

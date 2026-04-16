@@ -55,10 +55,10 @@ This builds a `.plasmoid` package, installs it, and restarts plasmashell. The pl
 ./build-plasmoid.sh
 
 # Install it
-kpackagetool6 -t Plasma/Applet -i dist/bing-wallpaper.plasmoid
+kpackagetool6 -t Plasma/Applet -i dist/com.github.trickpattyFH20.bingwallpaper.tray.plasmoid
 
 # Upgrade an existing installation
-kpackagetool6 -t Plasma/Applet -u dist/bing-wallpaper.plasmoid
+kpackagetool6 -t Plasma/Applet -u dist/com.github.trickpattyFH20.bingwallpaper.tray.plasmoid
 ```
 
 ### Arch Linux
