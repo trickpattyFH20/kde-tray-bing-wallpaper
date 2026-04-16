@@ -1,6 +1,6 @@
 # Maintainer: trickpattyFH20 <patricktlawler@gmail.com>
 pkgname=kde-tray-bing-wallpaper
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc='KDE Plasma system tray app and wallpaper plugin for daily Bing wallpapers'
 arch=('any')

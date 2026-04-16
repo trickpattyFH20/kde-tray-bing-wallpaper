@@ -218,7 +218,7 @@ Kirigami.FormLayout {
     // --- About ---
     Kirigami.SelectableLabel {
         Kirigami.FormData.label: "About:"
-        text: "<b>Bing Wallpaper</b> v0.1.0<br>" +
+        text: "<b>Bing Wallpaper</b> v1.0.0<br>" +
               "<a href=\"https://github.com/trickpattyFH20/kde-tray-bing-wallpaper\">GitHub</a>"
         onLinkActivated: function(link) { Qt.openUrlExternally(link) }
     }
