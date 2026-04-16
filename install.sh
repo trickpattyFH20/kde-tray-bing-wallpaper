@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TRAY_ID="com.github.trickpattyFH20.bingwallpaper.tray"
-PLASMOID_FILE="$SCRIPT_DIR/dist/bing-wallpaper.plasmoid"
+PLASMOID_FILE="$SCRIPT_DIR/dist/$TRAY_ID.plasmoid"
 
 echo "=== Bing Wallpaper for KDE - Install ==="
 
