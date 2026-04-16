@@ -23,6 +23,16 @@ PlasmoidItem {
     property bool loading: false
     property bool pendingStartupCheck: false
 
+    // --- Bundled helper path ---
+    readonly property string contentsDir: {
+        var url = Qt.resolvedUrl("..").toString();
+        if (url.startsWith("file://")) url = url.substring(7);
+        // Remove trailing slash
+        if (url.endsWith("/")) url = url.slice(0, -1);
+        return url;
+    }
+    readonly property string helperPath: contentsDir + "/bin/bing-wallpaper-helper"
+
     // --- Plasmoid config ---
     Plasmoid.icon: "preferences-desktop-wallpaper"
     Plasmoid.status: PlasmaCore.Types.ActiveStatus
@@ -103,7 +113,7 @@ PlasmoidItem {
     function refresh() {
         root.loading = true;
         var keep = Plasmoid.configuration.RetentionCount || 0;
-        var cmd = "bing-wallpaper-helper fetch --apply";
+        var cmd = "'" + root.helperPath + "' fetch --apply";
         if (keep > 0) {
             cmd += " --keep " + keep;
         }
@@ -114,7 +124,7 @@ PlasmoidItem {
         if (index < 0 || index >= imageList.length) return;
         var img = imageList[index];
         var path = root.downloadDir + "/" + img.filename;
-        var cmd = "bing-wallpaper-helper set-wallpaper"
+        var cmd = "'" + root.helperPath + "' set-wallpaper"
             + " '" + path + "'"
             + " --title '" + (img.title || "").replace(/'/g, "'\\''") + "'"
             + " --copyright '" + (img.copyright || "").replace(/'/g, "'\\''") + "'"
@@ -163,6 +173,10 @@ PlasmoidItem {
             ? urlToPath(paths[0])
             : urlToPath(StandardPaths.standardLocations(StandardPaths.HomeLocation)[0]) + "/Pictures";
         root.downloadDir = picturesDir + "/bing-wallpapers";
+
+        // Run first-time setup if needed (installs systemd timer, wallpaper plugin)
+        var setupScript = root.contentsDir + "/bin/setup";
+        executable.connectSource("test -f ~/.config/bing-wallpaper-setup-done || sh '" + setupScript + "' '" + root.contentsDir + "'");
 
         // Load metadata, then check if we need to fetch today's wallpaper
         root.pendingStartupCheck = true;

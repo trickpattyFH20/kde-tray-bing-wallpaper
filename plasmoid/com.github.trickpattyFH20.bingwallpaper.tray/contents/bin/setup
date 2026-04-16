@@ -1,0 +1,51 @@
+#!/bin/sh
+# First-run setup for the Bing Wallpaper plasmoid.
+# Installs the systemd timer, wallpaper plugin, and makes the helper executable.
+#
+# Usage: setup <contents-dir>
+#   contents-dir: path to the plasmoid's contents/ directory
+
+set -e
+
+CONTENTS_DIR="$1"
+if [ -z "$CONTENTS_DIR" ]; then
+    echo "Usage: setup <contents-dir>" >&2
+    exit 1
+fi
+
+MARKER="$HOME/.config/bing-wallpaper-setup-done"
+PLUGIN_ID="com.github.trickpattyFH20.bingwallpaper"
+
+# Already set up — skip
+[ -f "$MARKER" ] && exit 0
+
+# 1. Make the bundled helper executable
+chmod +x "$CONTENTS_DIR/bin/bing-wallpaper-helper" 2>/dev/null || true
+
+# 2. Install the wallpaper plugin
+WALLPAPER_DEST="$HOME/.local/share/plasma/wallpapers/$PLUGIN_ID"
+if [ -d "$CONTENTS_DIR/data/wallpaper-plugin" ]; then
+    mkdir -p "$WALLPAPER_DEST"
+    cp -r "$CONTENTS_DIR/data/wallpaper-plugin/"* "$WALLPAPER_DEST/"
+fi
+
+# 3. Install systemd timer + service
+SYSTEMD_DIR="$HOME/.config/systemd/user"
+mkdir -p "$SYSTEMD_DIR"
+
+HELPER_PATH="$CONTENTS_DIR/bin/bing-wallpaper-helper"
+
+# Copy timer as-is
+cp "$CONTENTS_DIR/data/bing-wallpaper.timer" "$SYSTEMD_DIR/"
+
+# Patch service to point to the bundled helper
+sed "s|%h/.local/bin/bing-wallpaper-helper|$HELPER_PATH|" \
+    "$CONTENTS_DIR/data/bing-wallpaper.service" \
+    > "$SYSTEMD_DIR/bing-wallpaper.service"
+
+systemctl --user daemon-reload
+systemctl --user enable --now bing-wallpaper.timer
+
+# 4. Mark setup complete
+mkdir -p "$(dirname "$MARKER")"
+echo "installed $(date -Iseconds)" > "$MARKER"

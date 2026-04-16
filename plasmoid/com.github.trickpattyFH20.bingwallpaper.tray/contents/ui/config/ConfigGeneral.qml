@@ -16,6 +16,12 @@ Kirigami.FormLayout {
 
     property alias cfg_RetentionCount: retentionCombo.currentValue
 
+    readonly property string helperPath: {
+        var url = Qt.resolvedUrl("../../bin/bing-wallpaper-helper").toString();
+        if (url.startsWith("file://")) url = url.substring(7);
+        return url;
+    }
+
     Plasma5Support.DataSource {
         id: configExec
         engine: "executable"
@@ -115,7 +121,7 @@ Kirigami.FormLayout {
         }
 
         onAccepted: {
-            configExec.connectSource("bing-wallpaper-helper cleanup --keep 0")
+            configExec.connectSource("'" + configRoot.helperPath + "' cleanup --keep 0")
         }
     }
 }

@@ -26,6 +26,10 @@ PlasmaExtras.Representation {
         ? "file://" + root.downloadDir + "/" + currentImage.filename
         : ""
 
+    // Max content width — the popup is resizable by the system tray,
+    // so we cap the content and center it instead.
+    readonly property real maxContentWidth: Kirigami.Units.gridUnit * 24
+
     header: PlasmaExtras.PlasmoidHeading {
         RowLayout {
             anchors.fill: parent
@@ -58,7 +62,8 @@ PlasmaExtras.Representation {
 
             ColumnLayout {
                 id: contentColumn
-                width: scrollView.availableWidth
+                width: Math.min(scrollView.availableWidth, fullRoot.maxContentWidth)
+                anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Kirigami.Units.smallSpacing
 
                 // --- Image preview ---
@@ -180,8 +185,16 @@ PlasmaExtras.Representation {
 
                 Flow {
                     Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignHCenter
                     spacing: Kirigami.Units.smallSpacing
+
+                    // Center thumbnails by calculating even side margins
+                    property real thumbWidth: Kirigami.Units.gridUnit * 7
+                    property int cols: Math.max(1, Math.floor((contentColumn.width + spacing) / (thumbWidth + spacing)))
+                    property real usedWidth: cols * thumbWidth + (cols - 1) * spacing
+                    property real sideMargin: Math.max(0, (contentColumn.width - usedWidth) / 2)
+
+                    Layout.leftMargin: sideMargin
+                    Layout.rightMargin: sideMargin
 
                     Repeater {
                         model: root.imageList

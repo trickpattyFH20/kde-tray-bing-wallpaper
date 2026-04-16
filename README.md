@@ -38,7 +38,7 @@ A KDE Plasma 6 system tray applet and wallpaper plugin that automatically fetche
 
 ## Installation
 
-### From source
+### Quick install (from source)
 
 ```bash
 git clone https://github.com/trickpattyFH20/kde-tray-bing-wallpaper.git
@@ -46,11 +46,20 @@ cd kde-tray-bing-wallpaper
 ./install.sh
 ```
 
-The install script will:
-1. Install `bing-wallpaper-helper` to `~/.local/bin/`
-2. Install the wallpaper plugin to `~/.local/share/plasma/wallpapers/`
-3. Install the system tray plasmoid via `kpackagetool6`
-4. Register the applet in the system tray and restart plasmashell
+This builds a `.plasmoid` package, installs it, and restarts plasmashell. The plasmoid is fully self-contained — on first launch it automatically sets up the systemd timer and wallpaper plugin.
+
+### Manual install
+
+```bash
+# Build the .plasmoid package
+./build-plasmoid.sh
+
+# Install it
+kpackagetool6 -t Plasma/Applet -i dist/bing-wallpaper.plasmoid
+
+# Upgrade an existing installation
+kpackagetool6 -t Plasma/Applet -u dist/bing-wallpaper.plasmoid
+```
 
 ### Arch Linux
 
