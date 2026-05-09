@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -24,6 +25,10 @@ BING_API_URL = "https://www.bing.com/HPImageArchive.aspx?format=js&n=8&idx=0"
 BING_BASE_URL = "https://www.bing.com"
 PLUGIN_ID = "com.github.trickpattyFH20.bingwallpaper"
 DEFAULT_DIR = Path.home() / "Pictures" / "bing-wallpapers"
+LOGIN_SCREEN_DIR = Path("/var/lib/bing-wallpaper")
+LOGIN_SCREEN_FILE = LOGIN_SCREEN_DIR / "current.jpg"
+LOCK_SCREEN_MARKER = Path.home() / ".config" / "bing-wallpaper" / "sync-lockscreen"
+LOCK_SCREEN_CONFIG = Path.home() / ".config" / "kscreenlockerrc"
 
 
 def get_download_dir(args_dir: str | None) -> Path:
@@ -202,9 +207,51 @@ for (var i = 0; i < allDesktops.length; i++) {{
              "org.kde.PlasmaShell.evaluateScript", script],
             capture_output=True, text=True, timeout=10,
         )
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
     except Exception:
         return False
+
+    sync_login_screen(image_path)
+    sync_lock_screen(image_path)
+    return True
+
+
+def sync_login_screen(image_path: str) -> None:
+    """Copy the wallpaper to the system-readable login screen path.
+
+    Silent no-op when login screen sync hasn't been set up (the drop dir
+    doesn't exist or isn't user-writable).
+    """
+    if not LOGIN_SCREEN_DIR.is_dir() or not os.access(LOGIN_SCREEN_DIR, os.W_OK):
+        return
+    try:
+        shutil.copy2(image_path, LOGIN_SCREEN_FILE)
+    except Exception as e:
+        print(f"Warning: login screen sync failed: {e}", file=sys.stderr)
+
+
+def sync_lock_screen(image_path: str) -> None:
+    """Update kscreenlockerrc to point at the given image.
+
+    Silent no-op when lock screen sync hasn't been opted into (marker absent).
+    """
+    if not LOCK_SCREEN_MARKER.exists():
+        return
+    image_url = f"file://{image_path}"
+    base = ["kwriteconfig6", "--file", str(LOCK_SCREEN_CONFIG),
+            "--group", "Greeter"]
+    inner = base + ["--group", "Wallpaper", "--group", "org.kde.image",
+                    "--group", "General"]
+    try:
+        subprocess.run(base + ["--key", "WallpaperPlugin", "org.kde.image"],
+                       check=True, timeout=10, capture_output=True)
+        subprocess.run(inner + ["--key", "Image", image_url],
+                       check=True, timeout=10, capture_output=True)
+        subprocess.run(inner + ["--key", "FillMode", "2"],
+                       check=True, timeout=10, capture_output=True)
+    except Exception as e:
+        print(f"Warning: lock screen sync failed: {e}", file=sys.stderr)
 
 
 def cmd_set_wallpaper(args):
@@ -220,6 +267,63 @@ def cmd_set_wallpaper(args):
     else:
         print(json.dumps({"error": "qdbus6 failed to apply wallpaper"}))
         sys.exit(1)
+
+
+def cmd_set_lock_screen_sync(args):
+    """Enable or disable lock screen wallpaper sync."""
+    if args.enabled:
+        LOCK_SCREEN_MARKER.parent.mkdir(parents=True, exist_ok=True)
+        LOCK_SCREEN_MARKER.touch()
+
+        download_dir = get_download_dir(args.dir)
+        metadata = load_metadata(download_dir)
+        applied = ""
+        if metadata["images"]:
+            candidate = download_dir / metadata["images"][0]["filename"]
+            if candidate.exists():
+                sync_lock_screen(str(candidate))
+                applied = str(candidate)
+        print(json.dumps({"ok": True, "enabled": True, "applied": applied}))
+    else:
+        if LOCK_SCREEN_MARKER.exists():
+            LOCK_SCREEN_MARKER.unlink()
+        print(json.dumps({"ok": True, "enabled": False}))
+
+
+def cmd_setup_login_screen(args):
+    """Run the privileged setup script via pkexec to enable/disable login screen sync."""
+    script = Path(__file__).resolve().parent / "setup-login-screen"
+    if not script.exists():
+        print(json.dumps({"error": f"setup script not found: {script}"}))
+        sys.exit(1)
+
+    if args.enabled:
+        download_dir = get_download_dir(args.dir)
+        metadata = load_metadata(download_dir)
+        initial = ""
+        if metadata["images"]:
+            candidate = download_dir / metadata["images"][0]["filename"]
+            if candidate.exists():
+                initial = str(candidate)
+
+        cmd = ["pkexec", str(script), "--enable"]
+        if initial:
+            cmd.append(initial)
+    else:
+        cmd = ["pkexec", str(script), "--disable"]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except Exception as e:
+        print(json.dumps({"error": f"pkexec failed: {e}"}))
+        sys.exit(1)
+
+    if result.returncode != 0:
+        msg = result.stderr.strip() or result.stdout.strip() or "pkexec returned non-zero"
+        print(json.dumps({"error": msg}))
+        sys.exit(1)
+
+    print(json.dumps({"ok": True, "enabled": args.enabled}))
 
 
 def cmd_cleanup(args):
@@ -266,6 +370,20 @@ def main():
     clean_p.add_argument("--dir", help="Download directory")
     clean_p.add_argument("--keep", type=int, default=50, help="Number of images to keep")
 
+    login_p = sub.add_parser("setup-login-screen",
+                             help="Enable or disable login screen wallpaper sync (prompts for password)")
+    login_p.add_argument("--dir", help="Download directory")
+    login_g = login_p.add_mutually_exclusive_group(required=True)
+    login_g.add_argument("--enable", dest="enabled", action="store_true")
+    login_g.add_argument("--disable", dest="enabled", action="store_false")
+
+    lock_p = sub.add_parser("set-lock-screen-sync",
+                            help="Enable or disable lock screen wallpaper sync")
+    lock_p.add_argument("--dir", help="Download directory")
+    lock_g = lock_p.add_mutually_exclusive_group(required=True)
+    lock_g.add_argument("--enable", dest="enabled", action="store_true")
+    lock_g.add_argument("--disable", dest="enabled", action="store_false")
+
     args = parser.parse_args()
 
     if args.command == "fetch":
@@ -274,6 +392,10 @@ def main():
         cmd_set_wallpaper(args)
     elif args.command == "cleanup":
         cmd_cleanup(args)
+    elif args.command == "setup-login-screen":
+        cmd_setup_login_screen(args)
+    elif args.command == "set-lock-screen-sync":
+        cmd_set_lock_screen_sync(args)
 
 
 if __name__ == "__main__":

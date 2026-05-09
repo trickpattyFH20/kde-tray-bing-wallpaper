@@ -22,8 +22,9 @@ cp -r "$SCRIPT_DIR/plasmoid/$TRAY_ID" "$DEST"
 mkdir -p "$DEST/contents/bin"
 cp "$SCRIPT_DIR/src/bing-wallpaper-helper" "$DEST/contents/bin/"
 chmod +x "$DEST/contents/bin/bing-wallpaper-helper"
-# setup script is already in the plasmoid source
+# setup scripts are already in the plasmoid source
 chmod +x "$DEST/contents/bin/setup"
+chmod +x "$DEST/contents/bin/setup-login-screen"
 
 # Bundle systemd units
 mkdir -p "$DEST/contents/data"

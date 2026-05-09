@@ -22,13 +22,71 @@ Kirigami.FormLayout {
         return url;
     }
 
+    property string loginSyncStatus: ""
+
     Plasma5Support.DataSource {
         id: configExec
         engine: "executable"
         connectedSources: []
         onNewData: function(source, data) {
+            var stdout = (data["stdout"] || "").trim();
+            var stderr = (data["stderr"] || "").trim();
             configExec.disconnectSource(source);
+
+            if (source.indexOf("setup-login-screen") >= 0) {
+                var enabled = source.indexOf("--enable") >= 0;
+                try {
+                    var r = JSON.parse(stdout);
+                    if (r.ok) {
+                        configRoot.loginSyncStatus = enabled
+                            ? "Enabled. Login screen will update on the next wallpaper change."
+                            : "Disabled. Reverted to Picture of the Day (Bing).";
+                    } else if (r.error) {
+                        configRoot.loginSyncStatus = "Failed: " + r.error;
+                        loginScreenSync.checked = !enabled;
+                    }
+                } catch (e) {
+                    configRoot.loginSyncStatus = stderr || "Cancelled or failed.";
+                    loginScreenSync.checked = !enabled;
+                }
+            }
         }
+    }
+
+    Plasma5Support.DataSource {
+        id: loginSyncCheck
+        engine: "executable"
+        connectedSources: []
+        onNewData: function(source, data) {
+            var stdout = (data["stdout"] || "").trim();
+            loginSyncCheck.disconnectSource(source);
+            loginScreenSync.checked = (stdout === "yes");
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: lockSyncExec
+        engine: "executable"
+        connectedSources: []
+        onNewData: function(source, data) {
+            lockSyncExec.disconnectSource(source);
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: lockSyncCheck
+        engine: "executable"
+        connectedSources: []
+        onNewData: function(source, data) {
+            var stdout = (data["stdout"] || "").trim();
+            lockSyncCheck.disconnectSource(source);
+            lockScreenSync.checked = (stdout === "yes");
+        }
+    }
+
+    Component.onCompleted: {
+        loginSyncCheck.connectSource("test -d /var/lib/bing-wallpaper && echo yes || echo no");
+        lockSyncCheck.connectSource("test -f ~/.config/bing-wallpaper/sync-lockscreen && echo yes || echo no");
     }
 
     // Top padding
@@ -96,6 +154,49 @@ Kirigami.FormLayout {
             if (s.startsWith("file://")) s = s.substring(7);
             configExec.connectSource("xdg-open " + s + "/bing-wallpapers");
         }
+    }
+
+    Kirigami.Separator {
+        Kirigami.FormData.isSection: true
+    }
+
+    QQC2.CheckBox {
+        id: loginScreenSync
+        Kirigami.FormData.label: "Login screen:"
+        text: "Sync wallpaper to login screen"
+        onClicked: {
+            var flag = checked ? "--enable" : "--disable";
+            configRoot.loginSyncStatus = "Awaiting authentication…";
+            configExec.connectSource("'" + configRoot.helperPath + "' setup-login-screen " + flag);
+        }
+    }
+
+    QQC2.Label {
+        text: configRoot.loginSyncStatus.length > 0
+            ? configRoot.loginSyncStatus
+            : "Asks for your password each time. Takes effect on next logout/reboot."
+        wrapMode: Text.Wrap
+        opacity: 0.7
+    }
+
+    Kirigami.Separator {
+        Kirigami.FormData.isSection: true
+    }
+
+    QQC2.CheckBox {
+        id: lockScreenSync
+        Kirigami.FormData.label: "Lock screen:"
+        text: "Sync wallpaper to lock screen"
+        onClicked: {
+            var flag = checked ? "--enable" : "--disable";
+            lockSyncExec.connectSource("'" + configRoot.helperPath + "' set-lock-screen-sync " + flag);
+        }
+    }
+
+    QQC2.Label {
+        text: "Updates the lock screen wallpaper alongside the desktop. Takes effect on the next lock."
+        wrapMode: Text.Wrap
+        opacity: 0.7
     }
 
     Kirigami.Separator {

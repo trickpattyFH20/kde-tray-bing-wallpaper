@@ -1,0 +1,81 @@
+#!/bin/sh
+# Privileged setup for syncing Bing wallpapers to the Plasma Login Manager
+# (plasmalogin). Must be run via pkexec — relies on PKEXEC_UID to chown the
+# wallpaper drop directory to the calling user so subsequent wallpaper updates
+# need no further root prompts.
+#
+# Usage (via pkexec):
+#   pkexec setup-login-screen --enable [initial-image-path]
+#   pkexec setup-login-screen --disable
+#
+# The greeter runs as a separate system user that can't read $HOME, so the
+# wallpaper file must live in a system-readable location.
+
+set -e
+
+if [ -z "$PKEXEC_UID" ]; then
+    echo "This script must be run via pkexec." >&2
+    exit 1
+fi
+
+DEST_DIR="/var/lib/bing-wallpaper"
+DEST_FILE="$DEST_DIR/current.jpg"
+PLASMALOGIN_CONF="/etc/plasmalogin.conf"
+
+if ! command -v kwriteconfig6 >/dev/null 2>&1; then
+    echo "kwriteconfig6 not found — KDE Plasma 6 / KConfig is required." >&2
+    exit 1
+fi
+
+if [ ! -f "$PLASMALOGIN_CONF" ]; then
+    echo "$PLASMALOGIN_CONF not found — is plasmalogin installed?" >&2
+    exit 1
+fi
+
+case "${1:-}" in
+    --enable)
+        INITIAL_IMAGE="${2:-}"
+
+        mkdir -p "$DEST_DIR"
+        chown "$PKEXEC_UID" "$DEST_DIR"
+        chmod 755 "$DEST_DIR"
+
+        if [ -n "$INITIAL_IMAGE" ] && [ -f "$INITIAL_IMAGE" ]; then
+            cp "$INITIAL_IMAGE" "$DEST_FILE"
+            chown "$PKEXEC_UID" "$DEST_FILE"
+            chmod 644 "$DEST_FILE"
+        fi
+
+        kwriteconfig6 --file "$PLASMALOGIN_CONF" \
+            --group Greeter --key WallpaperPluginId "org.kde.image"
+
+        kwriteconfig6 --file "$PLASMALOGIN_CONF" \
+            --group Greeter --group Wallpaper --group "org.kde.image" --group General \
+            --key Image "file://$DEST_FILE"
+
+        kwriteconfig6 --file "$PLASMALOGIN_CONF" \
+            --group Greeter --group Wallpaper --group "org.kde.image" --group General \
+            --key FillMode 2
+
+        echo "Login screen wallpaper sync configured: $DEST_FILE"
+        ;;
+
+    --disable)
+        kwriteconfig6 --file "$PLASMALOGIN_CONF" \
+            --group Greeter --key WallpaperPluginId "org.kde.potd"
+
+        kwriteconfig6 --file "$PLASMALOGIN_CONF" \
+            --group Greeter --group Wallpaper --group "org.kde.image" --group General \
+            --key Image --delete
+
+        rm -f "$DEST_FILE"
+        rmdir "$DEST_DIR" 2>/dev/null || true
+
+        echo "Login screen wallpaper sync disabled; reverted to org.kde.potd."
+        ;;
+
+    *)
+        echo "Usage: $0 --enable [image] | --disable" >&2
+        exit 1
+        ;;
+esac
