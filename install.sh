@@ -23,10 +23,14 @@ else
     echo "Plasmoid installed"
 fi
 
-# Restart plasmashell so changes take effect
-echo "Restarting plasmashell..."
-kquitapp6 plasmashell 2>/dev/null || true
-sleep 1
+# Stop plasmashell so we can register the applet in its config safely.
+# Drive it through the session systemd unit, NOT `kquitapp6`/`kstart`: on a
+# Wayland session a raw `kstart plasmashell` launches outside the session
+# environment, falls back to the xcb backend with no display, and aborts. Since
+# the unit runs with --no-respawn, that would leave the panel dead until a manual
+# restart. `systemctl --user stop` is synchronous, so no sleep is needed.
+echo "Stopping plasmashell..."
+systemctl --user stop plasma-plasmashell.service 2>/dev/null || true
 
 # Register applet in the system tray so it appears automatically
 echo "Registering in system tray..."
@@ -41,7 +45,7 @@ if [ -f "$APPLETS_RC" ]; then
     fi
 fi
 
-kstart plasmashell 2>/dev/null &
+systemctl --user start plasma-plasmashell.service
 echo "Plasmashell restarted"
 
 echo ""
