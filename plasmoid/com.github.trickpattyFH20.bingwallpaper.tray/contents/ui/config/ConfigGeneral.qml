@@ -194,7 +194,7 @@ Kirigami.FormLayout {
     }
 
     QQC2.Label {
-        text: "Updates the lock screen wallpaper alongside the desktop. Takes effect on the next lock."
+        text: "Updates the lock screen wallpaper alongside the desktop, applied immediately."
         wrapMode: Text.Wrap
         opacity: 0.7
     }

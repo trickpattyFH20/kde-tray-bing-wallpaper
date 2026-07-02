@@ -252,6 +252,19 @@ def sync_lock_screen(image_path: str) -> None:
                        check=True, timeout=10, capture_output=True)
     except Exception as e:
         print(f"Warning: lock screen sync failed: {e}", file=sys.stderr)
+        return
+
+    # Tell the running locker daemon to re-read kscreenlockerrc now, so the new
+    # wallpaper is loaded the moment it changes instead of lazily at lock time.
+    # (Same "apply now" signal System Settings sends; does not lock the screen.)
+    try:
+        subprocess.run(
+            ["qdbus6", "org.freedesktop.ScreenSaver", "/ScreenSaver",
+             "org.kde.screensaver.configure"],
+            timeout=10, capture_output=True,
+        )
+    except Exception as e:
+        print(f"Warning: lock screen reload failed: {e}", file=sys.stderr)
 
 
 def cmd_set_wallpaper(args):
